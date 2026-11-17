@@ -71,7 +71,9 @@ export function createState(seed) {
     particles: createParticles(),
     /** Camera shake, in pixels of remaining violence. */
     shake: 0,
-    /** Slow-mo timer after a heavy hit (juice; the sim just steps less). */
+    /** Freeze-frame timer set by heavy kills; the frame loop honours it. */
+    hitStop: 0,
+    /** The wave banner on show ({title, subtitle, timer, duration}) or null. */
     banner: null,
     garden: growGarden(next),
   };

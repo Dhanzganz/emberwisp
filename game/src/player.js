@@ -3,7 +3,7 @@
 // answers on the same step the key lands — no input lag, no easing tricks.
 
 import { VIEW, WISP } from './config.js';
-import { dropTrail } from './particles.js';
+import { dropGhost, dropTrail } from './particles.js';
 
 /**
  * Steps the wisp for one fixed step. `input` is the shared input object;
@@ -68,6 +68,8 @@ export function stepWisp(state, input, dt, events) {
   if (wisp.y > VIEW.height - margin) { wisp.y = VIEW.height - margin; wisp.vy = Math.min(0, wisp.vy); }
 
   dropTrail(state.particles, wisp.x, wisp.y, wisp.radius * (dashing ? 1.25 : 0.9));
+  // A dash lays down afterimages, so the burst reads as one smooth streak.
+  if (dashing) dropGhost(state.particles, wisp.x, wisp.y, wisp.aim);
 
   // Firing: hold the mouse, bolts leave at a steady drumbeat toward the aim.
   if (input.mouseDown && wisp.fireTimer <= 0) {

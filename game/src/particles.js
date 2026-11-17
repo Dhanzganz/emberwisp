@@ -16,6 +16,8 @@ export function createParticles() {
     texts: [],
     /** The wisp's fading trail: {x, y, life, maxLife, radius}. */
     trail: [],
+    /** Afterimages the dash leaves behind: {x, y, aim, life, maxLife}. */
+    ghosts: [],
     /** Ambient motes that drift forever: {x, y, phase, speed, size, hue}. */
     motes: [],
   };
@@ -73,6 +75,15 @@ export function dropTrail(particles, x, y, radius) {
   if (particles.trail.length > 90) particles.trail.splice(0, particles.trail.length - 90);
 }
 
+/**
+ * Stamps one afterimage of the dashing wisp: a silhouette that holds its
+ * place and aim while it fades, so a dash reads as a streak of selves.
+ */
+export function dropGhost(particles, x, y, aim) {
+  particles.ghosts.push({ x, y, aim, life: 0.3, maxLife: 0.3 });
+  if (particles.ghosts.length > 14) particles.ghosts.splice(0, particles.ghosts.length - 14);
+}
+
 /** Advances every decorative system by dt seconds. */
 export function stepParticles(particles, dt, time) {
   const specks = particles.specks;
@@ -107,6 +118,11 @@ export function stepParticles(particles, dt, time) {
   for (let i = trail.length - 1; i >= 0; i -= 1) {
     trail[i].life -= dt;
     if (trail[i].life <= 0) trail.splice(i, 1);
+  }
+  const ghosts = particles.ghosts;
+  for (let i = ghosts.length - 1; i >= 0; i -= 1) {
+    ghosts[i].life -= dt;
+    if (ghosts[i].life <= 0) ghosts.splice(i, 1);
   }
   for (const mote of particles.motes) {
     mote.y -= mote.speed * dt;

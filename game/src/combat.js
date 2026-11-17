@@ -4,7 +4,7 @@
 // collection, and what happens when the wisp itself is hurt.
 
 import { PALETTE, SCORE, WISP } from './config.js';
-import { KIND_BOSS, KIND_BRUTE, shadeColor } from './enemies.js';
+import { KIND_BOSS, KIND_BRUTE, KIND_SPLITTER, shadeColor, spawnPips } from './enemies.js';
 import { burst, floatText, ring } from './particles.js';
 import { chance, range } from './random.js';
 
@@ -32,7 +32,10 @@ export function stepCombat(state, dt, events) {
       const shoveScale = 13 / moth.radius;
       moth.x += bolt.vx * 0.012 * shoveScale;
       moth.y += bolt.vy * 0.012 * shoveScale;
-      burst(state.particles, state.next, bolt.x, bolt.y, PALETTE.ember, 3, 130);
+      // Impact flash: a brighter burst against the heavy kinds, so a hit on
+      // bulk reads differently from a hit on a wisp of a moth.
+      const heavy = moth.kind === KIND_BRUTE || moth.kind === KIND_SPLITTER || moth.kind === KIND_BOSS;
+      burst(state.particles, state.next, bolt.x, bolt.y, PALETTE.ember, heavy ? 6 : 3, 130);
       if (moth.health <= 0) killShade(state, j, events);
       break;
     }
@@ -67,12 +70,26 @@ function killShade(state, index, events) {
   burst(state.particles, state.next, moth.x, moth.y, color, moth.kind === KIND_BOSS ? 46 : 14, moth.kind === KIND_BOSS ? 300 : 210);
   burst(state.particles, state.next, moth.x, moth.y, PALETTE.blossomSoft, 6, 140);
   floatText(state.particles, moth.x, moth.y - 12, `+${gained}`, PALETTE.textCream, moth.kind === KIND_BOSS ? 24 : 15);
+  // Every death flashes a ring in the shade's own hue; heavy deaths also
+  // stop the world for a blink, so a kill lands with weight.
   if (moth.kind === KIND_BOSS) {
     ring(state.particles, moth.x, moth.y, PALETTE.bossWing, 380, 5);
     state.shake = Math.max(state.shake, 13);
+    state.hitStop = Math.max(state.hitStop, 0.09);
     events.bossDown = true;
   } else {
+    ring(state.particles, moth.x, moth.y, color, 170, 2);
+    if (moth.kind === KIND_BRUTE || moth.kind === KIND_SPLITTER) {
+      state.hitStop = Math.max(state.hitStop, 0.05);
+    }
     events.mothDown = true;
+  }
+  // A popped podmoth is not gone: it splits into two pips that dart for
+  // the tree, so the kill is a beginning, not an end.
+  if (moth.kind === KIND_SPLITTER) {
+    spawnPips(state, moth.x, moth.y);
+    burst(state.particles, state.next, moth.x, moth.y, PALETTE.pipBody, 8, 190);
+    events.split = true;
   }
 
   // Drops: sparks often, hearts rarely — brutes and the boss are generous.
@@ -83,6 +100,9 @@ function killShade(state, index, events) {
   } else if (moth.kind === KIND_BRUTE) {
     dropPickup(state, PICKUP_SPARK, moth.x, moth.y);
     if (chance(state.next, 0.2)) dropPickup(state, PICKUP_HEART, moth.x, moth.y);
+  } else if (moth.kind === KIND_SPLITTER) {
+    // A piñata to the end: the podmoth always spills a spark.
+    dropPickup(state, PICKUP_SPARK, moth.x, moth.y);
   } else if (chance(state.next, 0.5)) {
     dropPickup(state, PICKUP_SPARK, moth.x, moth.y);
   }

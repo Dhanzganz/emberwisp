@@ -68,10 +68,14 @@ export const WAVES = {
   total: 10,
   /** Seconds of calm between one wave clearing and the next arriving. */
   calmSeconds: 3.2,
-  /** Moths in wave n (before the boss adds its own). */
-  mothsInWave: (wave) => 5 + wave * 3,
+  /**
+   * Moths in wave n (before the boss adds its own). The first three waves
+   * are a gentle apprenticeship; the count — and the share of brutes, darts
+   * and podmoths in it — climbs steeply from wave four to the tenth.
+   */
+  mothsInWave: (wave) => 4 + wave * 3,
   /** Seconds over which a wave's moths trickle in. */
-  trickleSeconds: (wave) => Math.min(6 + wave * 1.5, 20),
+  trickleSeconds: (wave) => Math.min(7 + wave * 1.4, 20),
 };
 
 export const SCORE = {
@@ -102,6 +106,9 @@ export const PALETTE = {
   shadeWing: '#c9c2ff',
   bruteBody: '#e0567a',
   bruteWing: '#ffb3c6',
+  splitterBody: '#f59e6c',
+  splitterWing: '#ffd9a8',
+  pipBody: '#7a68e8',
   bossBody: '#b04df0',
   bossWing: '#c77dff',
   spark: '#ffe066',

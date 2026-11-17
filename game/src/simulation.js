@@ -10,6 +10,7 @@ import { stepShades } from './enemies.js';
 import { stepWaves } from './waves.js';
 import { stepCombat, stepPickups, hurtWisp } from './combat.js';
 import { stepParticles, ring } from './particles.js';
+import { stepBanner } from './banner.js';
 import { PALETTE } from './config.js';
 
 /**
@@ -31,7 +32,14 @@ export function stepWorld(state, input, dt) {
     stepCombat(state, dt, events);
     stepPickups(state, dt, events);
 
-    if (events.treeGnawed) state.tree.hurtFlash = 0.18;
+    stepBanner(state, dt);
+    if (events.treeGnawed) {
+      state.tree.hurtFlash = 0.18;
+      // The whole garden trembles while teeth are in the tree: a low rumble
+      // for as long as the gnawing lasts, and a jolt as each shade latches.
+      state.shake = Math.max(state.shake, 2.4);
+      if (events.shadeLatched) state.shake = Math.max(state.shake, 6);
+    }
     if (events.wispBitten && state.wisp.mercyTimer <= 0) {
       if (hurtWisp(state, events)) events.wispDown = true;
     }

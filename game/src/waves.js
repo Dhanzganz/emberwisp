@@ -4,8 +4,7 @@
 
 import { BOSS, WAVES } from './config.js';
 import { kindForSpawn, spawnShade, KIND_BOSS } from './enemies.js';
-import { floatText } from './particles.js';
-import { PALETTE } from './config.js';
+import { raiseBanner } from './banner.js';
 
 /**
  * Steps the wave state machine. Returns events ({waveStarted, bossArrived,
@@ -42,6 +41,7 @@ export function stepWaves(state, dt, events) {
     wave.phase = 'calm';
     wave.phaseTimer = WAVES.calmSeconds;
     events.waveCleared = true;
+    raiseBanner(state, `WAVE ${wave.number} CLEARED`, 'Breathe. Mend. The night deepens.', 1.7);
   }
 }
 
@@ -60,10 +60,22 @@ function beginWave(state, events) {
     spawnShade(state, KIND_BOSS);
     wave.toSpawn = Math.max(4, Math.floor(total / 2));
     events.bossArrived = true;
-    floatText(state.particles, state.wisp.x, state.wisp.y - 44, 'THE GLOOM MOTH COMES', PALETTE.bossWing, 22);
+    raiseBanner(state, 'THE GLOOM MOTH COMES', 'It sheds moths while it lives — end it.', 2.6);
+  } else if (wave.number >= WAVES.total) {
+    raiseBanner(state, 'THE LAST WAVE', 'Hold the garden till dawn.', 2.6);
   } else {
-    floatText(state.particles, state.wisp.x, state.wisp.y - 44, `WAVE ${wave.number}`, PALETTE.textCream, 20);
+    raiseBanner(state, `WAVE ${wave.number}`, waveSubtitle(wave.number), 2.3);
   }
+}
+
+/** The banner's smaller line: each wave's new threat names itself once. */
+function waveSubtitle(wave) {
+  if (wave === 1) return 'The shades are coming for the light.';
+  if (wave === 3) return 'Brutes lumber in — they take a beating.';
+  if (wave === 4) return 'Podmoths! Popped, they split into pips.';
+  if (wave === 6) return 'The dark thickens. Stay near the tree.';
+  if (wave === 8) return 'Almost dawn. Do not let them latch.';
+  return 'Guard the Heartbloom.';
 }
 
 /** Short label for the HUD: what the night is doing right now. */
@@ -71,7 +83,7 @@ export function waveStatusText(state) {
   const wave = state.wave;
   if (wave.phase === 'calm') {
     if (wave.number === 0) return 'The night is young…';
-    return `Wave ${wave.number} cleared — breathe`;
+    return `Wave ${wave.number} of ${WAVES.total} cleared — breathe`;
   }
   const left = wave.toSpawn + state.moths.length;
   return `Wave ${wave.number} of ${WAVES.total} — ${left} shades remain`;

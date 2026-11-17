@@ -131,6 +131,7 @@ function snapshotState(state) {
     tree: { ...state.tree },
     combo: { ...state.combo },
     wave: { ...state.wave },
+    banner: state.banner ? { ...state.banner } : null,
     moths: copyItems(state.moths),
     bolts: copyItems(state.bolts),
     pickups: copyItems(state.pickups),
@@ -139,6 +140,7 @@ function snapshotState(state) {
       rings: copyItems(state.particles.rings),
       texts: copyItems(state.particles.texts),
       trail: copyItems(state.particles.trail),
+      ghosts: copyItems(state.particles.ghosts),
       motes: copyItems(state.particles.motes),
     },
   };
@@ -227,7 +229,7 @@ export function stageShotScene(name, input) {
       focusBossOnly = true;
       advance(state, input, (s) => {
         const boss = bossOf(s);
-        return boss === undefined || (boss.health <= boss.maxHealth * 0.6 && s.moths.length >= 4);
+        return boss === undefined || boss.health <= boss.maxHealth * 0.7 || s.moths.length >= 6;
       }, 60 * 15);
       focusBossOnly = false;
     }

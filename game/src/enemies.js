@@ -1,7 +1,8 @@
-// enemies.js — the shades that come for the Heartbloom. Three kinds share one
+// enemies.js — the shades that come for the Heartbloom. Five kinds share one
 // hunger: cross the garden, latch onto the canopy, and gnaw. Moths flutter,
-// brutes lumber, darts zigzag; the Gloom Moth boss arrives every fifth wave
-// and sheds moths while it lives. All behaviour is here; drawing is not.
+// brutes lumber, darts zigzag, and podmoths — plump, slow, and ripe — split
+// into two quick pips when popped; the Gloom Moth boss arrives every fifth
+// wave and sheds moths while it lives. All behaviour is here; drawing is not.
 
 import { BOSS, PALETTE, SHADE, TREE, VIEW } from './config.js';
 import { range } from './random.js';
@@ -9,12 +10,16 @@ import { range } from './random.js';
 export const KIND_MOTH = 'moth';
 export const KIND_BRUTE = 'brute';
 export const KIND_DART = 'dart';
+export const KIND_SPLITTER = 'splitter';
+export const KIND_PIP = 'pip';
 export const KIND_BOSS = 'boss';
 
 const KIND_STATS = {
   [KIND_MOTH]: { radius: 13, health: 2, speed: 1.0, gnaw: 1.0, score: 25 },
   [KIND_BRUTE]: { radius: 21, health: 6, speed: 0.62, gnaw: 1.9, score: 60 },
   [KIND_DART]: { radius: 10, health: 1, speed: 1.65, gnaw: 0.7, score: 40 },
+  [KIND_SPLITTER]: { radius: 17, health: 3, speed: 0.8, gnaw: 1.2, score: 50 },
+  [KIND_PIP]: { radius: 8, health: 1, speed: 1.72, gnaw: 0.5, score: 10 },
   [KIND_BOSS]: { radius: BOSS.radius, health: BOSS.health, speed: 1.0, gnaw: 2.9, score: BOSS.score },
 };
 
@@ -30,7 +35,7 @@ export function spawnShade(state, kind) {
   else if (edge === 1) { x = VIEW.width + margin; y = range(next, 0, VIEW.height); }
   else if (edge === 2) { x = range(next, 0, VIEW.width); y = VIEW.height + margin; }
   else { x = -margin; y = range(next, 0, VIEW.height); }
-  const healthScale = 1 + (state.wave.number - 1) * 0.12;
+  const healthScale = 1 + (state.wave.number - 1) * 0.1;
   const moth = {
     kind,
     x,
@@ -59,8 +64,26 @@ export function kindForSpawn(state) {
   const wave = state.wave.number;
   const roll = state.next();
   if (wave >= 3 && roll < 0.16) return KIND_BRUTE;
-  if (wave >= 4 && roll > 0.82) return KIND_DART;
+  if (wave >= 4 && roll > 0.86) return KIND_DART;
+  if (wave >= 4 && roll > 0.75) return KIND_SPLITTER;
   return KIND_MOTH;
+}
+
+/**
+ * The two pips a popped podmoth leaves behind, born at its body with a
+ * little outward scatter so they do not stack on one point. Combat calls
+ * this; the pips then home on the tree like any other shade.
+ */
+export function spawnPips(state, x, y) {
+  for (const side of [-1, 1]) {
+    const pip = spawnShade(state, KIND_PIP);
+    pip.x = x + side * 13;
+    pip.y = y + range(state.next, -8, 8);
+    pip.phase = range(state.next, 0, Math.PI * 2);
+    // Born mid-fight, a pip gets a breath before its teeth count: it must
+    // not bite the wisp that popped its parent in the same instant.
+    pip.biteTimer = 0.8;
+  }
 }
 
 /**
@@ -73,7 +96,7 @@ export function stepShades(state, dt, events) {
   const treeX = TREE.x;
   const treeY = TREE.y;
   for (const moth of state.moths) {
-    moth.phase += dt * (moth.kind === KIND_DART ? 16 : 10);
+    moth.phase += dt * (moth.kind === KIND_DART || moth.kind === KIND_PIP ? 16 : 10);
     if (moth.flash > 0) moth.flash -= dt;
     if (moth.biteTimer > 0) moth.biteTimer -= dt;
 
@@ -86,6 +109,7 @@ export function stepShades(state, dt, events) {
       // Latched: settle onto the canopy rim and gnaw.
       if (!moth.latched) {
         moth.latched = true;
+        events.shadeLatched = true;
         const angle = Math.atan2(dy, dx);
         moth.x = treeX - Math.cos(angle) * reach;
         moth.y = treeY - Math.sin(angle) * reach;
@@ -105,6 +129,15 @@ export function stepShades(state, dt, events) {
     if (moth.kind === KIND_MOTH) {
       moveX += -dy / distance * wobble * 26;
       moveY += dx / distance * wobble * 26;
+    } else if (moth.kind === KIND_PIP) {
+      // Pips skitter: short frantic darts from side to side as they close in.
+      const skitter = Math.sin(state.time * 13 + moth.wobbleSeed);
+      moveX += (-dy / distance) * skitter * 50;
+      moveY += (dx / distance) * skitter * 50;
+    } else if (moth.kind === KIND_SPLITTER) {
+      // Podmoths roll heavily, swaying wide and slow.
+      moveX += (-dy / distance) * wobble * 15;
+      moveY += (dx / distance) * wobble * 15;
     } else if (moth.kind === KIND_DART) {
       const zig = Math.sin(state.time * 9 + moth.wobbleSeed) > 0 ? 1 : -1;
       moveX += (-dy / distance) * zig * 52;
@@ -150,6 +183,8 @@ function biteWisp(state, events) {
 export function shadeColor(kind) {
   if (kind === KIND_BRUTE) return PALETTE.bruteBody;
   if (kind === KIND_BOSS) return PALETTE.bossBody;
+  if (kind === KIND_SPLITTER) return PALETTE.splitterBody;
+  if (kind === KIND_PIP) return PALETTE.pipBody;
   if (kind === KIND_DART) return PALETTE.shadeWing;
   return PALETTE.shadeBody;
 }

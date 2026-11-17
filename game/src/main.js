@@ -96,6 +96,14 @@ function frame(timestamp) {
   let elapsed = (timestamp - lastTimestamp) / 1000;
   lastTimestamp = timestamp;
   if (elapsed > 0.25) elapsed = 0.25; // a stalled tab must not teleport the world
+  // Hit-stop: a heavy kill freezes the world for a blink while the frame
+  // keeps drawing — the freeze eats the elapsed time, so nothing catches up.
+  if (state.hitStop > 0) {
+    state.hitStop = Math.max(0, state.hitStop - elapsed);
+    accumulator = 0;
+    drawFrame(ctx, state, input);
+    return;
+  }
   accumulator += elapsed;
   while (accumulator >= STEP) {
     accumulator -= STEP;

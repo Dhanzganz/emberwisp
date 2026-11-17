@@ -5,9 +5,10 @@
 
 import { PALETTE, SCORE, TREE, VIEW, WAVES, WISP } from './config.js';
 import { SCREEN_DAWN, SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE } from './state.js';
-import { KIND_BOSS, KIND_BRUTE, KIND_DART } from './enemies.js';
+import { KIND_BOSS, KIND_BRUTE, KIND_DART, KIND_PIP, KIND_SPLITTER } from './enemies.js';
 import { PICKUP_HEART } from './combat.js';
 import { waveStatusText } from './waves.js';
+import { bannerStrength } from './banner.js';
 
 /** Button rectangles the screens draw and the menu clicks test against. */
 export const BUTTON_START = { x: VIEW.width / 2 - 130, y: 566, w: 260, h: 58 };
@@ -56,11 +57,16 @@ export function drawFrame(ctx, state, input) {
   drawTree(ctx, state);
   drawShades(ctx, state);
   drawBolts(ctx, state);
+  drawGhosts(ctx, state);
   drawWisp(ctx, state);
   drawParticles(ctx, state);
   ctx.restore();
 
-  if (state.screen === SCREEN_PLAY) drawHud(ctx, state);
+  if (state.screen === SCREEN_PLAY) {
+    drawGnawVignette(ctx, state);
+    drawHud(ctx, state);
+    drawBanner(ctx, state);
+  }
   if (state.screen === SCREEN_TITLE) drawTitle(ctx, state, input);
   if (state.screen === SCREEN_OVER) drawEndPanel(ctx, state, input, false);
   if (state.screen === SCREEN_DAWN) drawEndPanel(ctx, state, input, true);
@@ -232,6 +238,82 @@ function drawWisp(ctx, state) {
   }
 }
 
+/** The dash's afterimages: wisp silhouettes that fade where the dash passed. */
+function drawGhosts(ctx, state) {
+  for (const ghost of state.particles.ghosts) {
+    const frac = ghost.life / ghost.maxLife;
+    ctx.save();
+    ctx.translate(ghost.x, ghost.y);
+    ctx.rotate(ghost.aim);
+    ctx.globalAlpha = 0.34 * frac;
+    const body = ctx.createRadialGradient(-3, -4, 1, 0, 0, WISP.radius + 2);
+    body.addColorStop(0, '#fff6d8');
+    body.addColorStop(0.55, PALETTE.amber);
+    body.addColorStop(1, PALETTE.ember);
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(0, 0, WISP.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * A danger vignette at the frame's edges while the tree is being gnawed —
+ * and a slow pulse whenever its health runs low, so peril is felt even
+ * with eyes on the wisp.
+ */
+function drawGnawVignette(ctx, state) {
+  const gnawing = state.tree.hurtFlash > 0 ? state.tree.hurtFlash / 0.18 : 0;
+  const low = state.tree.health < 30 ? 0.22 + 0.18 * Math.sin(state.time * 4) : 0;
+  const alpha = Math.min(0.32, gnawing * 0.22 + Math.max(0, low) * 0.3);
+  if (alpha <= 0.01) return;
+  const edge = ctx.createRadialGradient(
+    VIEW.width / 2, VIEW.height / 2, VIEW.height * 0.42,
+    VIEW.width / 2, VIEW.height / 2, VIEW.height * 0.78,
+  );
+  edge.addColorStop(0, 'rgba(255,77,94,0)');
+  edge.addColorStop(1, `rgba(255,77,94,${alpha.toFixed(3)})`);
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+}
+
+/** The wave banner: one big centred announcement, raised by the director. */
+function drawBanner(ctx, state) {
+  const banner = state.banner;
+  const strength = bannerStrength(banner);
+  if (!banner || strength <= 0.01) return;
+  const cx = VIEW.width / 2;
+  const cy = 268 - (1 - strength) * 10;
+  ctx.save();
+  ctx.globalAlpha = strength;
+  ctx.textAlign = 'center';
+  ctx.font = '900 46px "Trebuchet MS", sans-serif';
+  const titleW = ctx.measureText(banner.title).width;
+  ctx.font = '600 17px "Trebuchet MS", sans-serif';
+  const subW = banner.subtitle ? ctx.measureText(banner.subtitle).width : 0;
+  const panelW = Math.max(titleW, subW) + 72;
+  const panelH = banner.subtitle ? 108 : 78;
+  ctx.fillStyle = 'rgba(4,14,20,0.62)';
+  roundedRect(ctx, cx - panelW / 2, cy - 52, panelW, panelH, 14);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,179,71,0.35)';
+  ctx.lineWidth = 1.5;
+  roundedRect(ctx, cx - panelW / 2, cy - 52, panelW, panelH, 14);
+  ctx.stroke();
+  ctx.font = '900 46px "Trebuchet MS", sans-serif';
+  ctx.fillStyle = PALETTE.textCream;
+  ctx.fillText(banner.title, cx, cy + 16);
+  if (banner.subtitle) {
+    ctx.font = '600 17px "Trebuchet MS", sans-serif';
+    ctx.fillStyle = PALETTE.textDim;
+    ctx.fillText(banner.subtitle, cx, cy + 44);
+  }
+  ctx.restore();
+  ctx.textAlign = 'left';
+}
+
 /** Ember bolts: bright beads with a short comet tail. */
 function drawBolts(ctx, state) {
   for (const bolt of state.bolts) {
@@ -259,11 +341,14 @@ function drawShades(ctx, state) {
 
     const wingColor = moth.kind === KIND_BOSS ? PALETTE.bossWing
       : moth.kind === KIND_BRUTE ? PALETTE.bruteWing
-        : PALETTE.shadeWing;
+        : moth.kind === KIND_SPLITTER ? PALETTE.splitterWing
+          : PALETTE.shadeWing;
     const bodyColor = moth.kind === KIND_BOSS ? PALETTE.bossBody
       : moth.kind === KIND_BRUTE ? PALETTE.bruteBody
-        : moth.kind === KIND_DART ? '#6f5fe0'
-          : PALETTE.shadeBody;
+        : moth.kind === KIND_SPLITTER ? PALETTE.splitterBody
+          : moth.kind === KIND_PIP ? PALETTE.pipBody
+            : moth.kind === KIND_DART ? '#6f5fe0'
+              : PALETTE.shadeBody;
 
     // Wings: two ellipses that beat with the phase.
     ctx.fillStyle = wingColor;
@@ -283,6 +368,12 @@ function drawShades(ctx, state) {
     ctx.ellipse(0, 0, moth.radius * 0.55, moth.radius * 0.78, 0, 0, Math.PI * 2);
     ctx.fill();
     circle(ctx, 0, -moth.radius * 0.72, moth.radius * 0.34, bodyColor);
+    // The podmoth's pods ride on its back — the two pips it will split
+    // into, visible before they are born, so the surprise is a promise.
+    if (moth.kind === KIND_SPLITTER) {
+      circle(ctx, -moth.radius * 0.34, moth.radius * 0.42, moth.radius * 0.3, PALETTE.pipBody);
+      circle(ctx, moth.radius * 0.34, moth.radius * 0.42, moth.radius * 0.3, PALETTE.pipBody);
+    }
     // A fresh hit flashes white over the body — a tint, never a swap, so
     // even the boss keeps its colours at the moment it is struck.
     if (moth.flash > 0) {
@@ -313,12 +404,14 @@ function drawShades(ctx, state) {
     if (moth.latched && Math.floor(state.time * 10) % 2 === 0) {
       glow(ctx, moth.x, moth.y, moth.radius + 8, PALETTE.danger, 0.25);
     }
-    if (moth.kind === KIND_BOSS || (moth.kind === KIND_BRUTE && moth.health < moth.maxHealth)) {
+    if (moth.kind === KIND_BOSS || ((moth.kind === KIND_BRUTE || moth.kind === KIND_SPLITTER) && moth.health < moth.maxHealth)) {
       const w = moth.radius * 2;
       const frac = Math.max(0, moth.health / moth.maxHealth);
       ctx.fillStyle = 'rgba(6,16,20,0.7)';
       ctx.fillRect(moth.x - w / 2, moth.y - moth.radius - 14, w, 5);
-      ctx.fillStyle = moth.kind === KIND_BOSS ? PALETTE.bossWing : PALETTE.bruteWing;
+      ctx.fillStyle = moth.kind === KIND_BOSS ? PALETTE.bossWing
+        : moth.kind === KIND_SPLITTER ? PALETTE.splitterWing
+          : PALETTE.bruteWing;
       ctx.fillRect(moth.x - w / 2, moth.y - moth.radius - 14, w * frac, 5);
     }
   }
@@ -482,6 +575,44 @@ function drawHud(ctx, state) {
   ctx.textAlign = 'center';
   ctx.fillText('HEARTBLOOM', TREE.x, barY + 26);
   ctx.textAlign = 'left';
+
+  drawHudLegend(ctx, state);
+}
+
+/**
+ * The legend, bottom-left: what the garden's gifts are worth, drawn with
+ * the same shapes the pickups wear, so a new player learns them at a
+ * glance without leaving the fight.
+ */
+function drawHudLegend(ctx, state) {
+  const y = VIEW.height - 20;
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  // The spark: a four-point star, as it falls.
+  ctx.fillStyle = PALETTE.spark;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i += 1) {
+    const angle = (i / 8) * Math.PI * 2 + state.time * 2;
+    const radius = i % 2 === 0 ? 8 : 3;
+    const px = 30 + Math.cos(angle) * radius;
+    const py = y - 4 + Math.sin(angle) * radius;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = PALETTE.textDim;
+  ctx.font = '600 12px "Trebuchet MS", sans-serif';
+  ctx.fillText(`+${SCORE.spark}`, 44, y);
+  // The heart: a life, mended.
+  ctx.fillStyle = PALETTE.heart;
+  ctx.beginPath();
+  ctx.moveTo(96, y + 3);
+  ctx.bezierCurveTo(87, -4 + y, 91, -11 + y, 96, -6 + y);
+  ctx.bezierCurveTo(101, -11 + y, 105, -4 + y, 96, y + 3);
+  ctx.fill();
+  ctx.fillStyle = PALETTE.textDim;
+  ctx.fillText('+1 LIFE', 110, y);
+  ctx.restore();
 }
 
 /** A translucent veil panel used by every screen. */
@@ -521,9 +652,12 @@ function drawTitle(ctx, state, input) {
   ctx.strokeStyle = PALETTE.blossom;
   ctx.lineWidth = 2;
   ctx.strokeText('EMBERWISP', VIEW.width / 2, 238);
+  ctx.font = '700 15px "Trebuchet MS", sans-serif';
+  ctx.fillStyle = PALETTE.amber;
+  ctx.fillText('— OBJECTIVE —', VIEW.width / 2, 282);
   ctx.font = '600 21px "Trebuchet MS", sans-serif';
   ctx.fillStyle = PALETTE.textCream;
-  ctx.fillText('Guard the Heartbloom till dawn. Ten waves of shades are coming for its light.', VIEW.width / 2, 288);
+  ctx.fillText('Guard the Heartbloom till dawn. Ten waves of shades are coming for its light.', VIEW.width / 2, 312);
 
   ctx.font = '600 18px "Trebuchet MS", sans-serif';
   ctx.fillStyle = PALETTE.textDim;
