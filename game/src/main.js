@@ -9,7 +9,7 @@ import { createInput, bindInput, consumeInput } from './input.js';
 import {
   createAudio, ensureAudio, startMusic, toggleMute,
   playShoot, playDash, playHit, playMothDown, playSpark, playHeart,
-  playWaveHorn, playBossRoar, playTreeHurt, playDawn, playGameOver,
+  playWaveHorn, playClear, playBossRoar, playTreeHurt, playDawn, playGameOver,
 } from './audio.js';
 import { createState, restartRun, SCREEN_OVER, SCREEN_DAWN, SCREEN_PLAY, SCREEN_TITLE } from './state.js';
 import { stepWorld } from './simulation.js';
@@ -62,6 +62,8 @@ function soundEvents(events) {
   if (events.sparkTaken) playSpark(audio, state.combo.multiplier);
   if (events.heartTaken) playHeart(audio);
   if (events.waveStarted) playWaveHorn(audio);
+  if (events.waveCleared) playClear(audio);
+  if (events.scoutArrived) playWaveHorn(audio);
   if (events.bossArrived) playBossRoar(audio);
   if (events.treeGnawed && Math.random() < 0.06) playTreeHurt(audio);
   if (events.runEnded) {

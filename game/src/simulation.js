@@ -9,9 +9,10 @@ import { stepWisp, stepBolts } from './player.js';
 import { stepShades } from './enemies.js';
 import { stepWaves } from './waves.js';
 import { stepCombat, stepPickups, hurtWisp } from './combat.js';
-import { stepParticles, ring } from './particles.js';
+import { stepParticles, ring, burst, firework } from './particles.js';
 import { stepBanner } from './banner.js';
-import { PALETTE } from './config.js';
+import { PALETTE, TREE } from './config.js';
+import { range, whole } from './random.js';
 
 /**
  * Advances `state` by dt (one fixed step during play). Fills and returns an
@@ -33,6 +34,14 @@ export function stepWorld(state, input, dt) {
     stepPickups(state, dt, events);
 
     stepBanner(state, dt);
+    if (events.waveCleared) {
+      // v3: the tree itself celebrates a cleared wave — a blossom burst
+      // from the canopy the player just saved, so the reward moment
+      // happens in the world, not only in a banner.
+      ring(state.particles, TREE.x, TREE.y - 30, PALETTE.blossomSoft, 300, 3);
+      burst(state.particles, state.next, TREE.x, TREE.y - 40, PALETTE.blossomSoft, 22, 200);
+      burst(state.particles, state.next, TREE.x, TREE.y - 40, PALETTE.blossom, 12, 150);
+    }
     if (events.treeGnawed) {
       state.tree.hurtFlash = 0.18;
       // The whole garden trembles while teeth are in the tree: a low rumble
@@ -54,9 +63,33 @@ export function stepWorld(state, input, dt) {
       state.screen = SCREEN_DAWN;
       ring(state.particles, state.wisp.x, state.wisp.y, PALETTE.amber, 420, 5);
       ring(state.particles, state.wisp.x, state.wisp.y, PALETTE.blossomSoft, 300, 4);
+      // v3: dawn is the game's biggest moment — it earns a firework show.
+      state.celebration = 3.4;
+      state.celebrationTimer = 0;
       events.runEnded = true;
     }
     if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 26);
+  }
+
+  // v3: on the dawn screen the sunrise eases in and the celebration
+  // fireworks pop across the sky for a few seconds — the win keeps moving
+  // after the last wave falls, instead of freezing into a static panel.
+  if (state.screen === SCREEN_DAWN) {
+    state.dawnGlow = Math.min(1, state.dawnGlow + dt / 1.6);
+    if (state.celebration > 0) {
+      state.celebration -= dt;
+      state.celebrationTimer -= dt;
+      if (state.celebrationTimer <= 0) {
+        state.celebrationTimer = 0.3;
+        const colors = [PALETTE.blossom, PALETTE.amber, PALETTE.spark, PALETTE.blossomSoft];
+        firework(
+          state.particles, state.next,
+          TREE.x + range(state.next, -390, 390),
+          TREE.y - range(state.next, 150, 330),
+          colors[whole(state.next, 0, 3)],
+        );
+      }
+    }
   }
 
   stepParticles(state.particles, dt, state.time);

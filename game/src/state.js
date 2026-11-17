@@ -5,7 +5,7 @@
 
 import { TREE, VIEW, WISP } from './config.js';
 import { makeRandom, range, whole } from './random.js';
-import { createParticles, seedMotes } from './particles.js';
+import { createParticles, seedMotes, seedPetals } from './particles.js';
 
 export const SCREEN_TITLE = 'title';
 export const SCREEN_PLAY = 'play';
@@ -75,9 +75,16 @@ export function createState(seed) {
     hitStop: 0,
     /** The wave banner on show ({title, subtitle, timer, duration}) or null. */
     banner: null,
+    /** v3: seconds of blossom-firework celebration left once dawn breaks. */
+    celebration: 0,
+    /** v3: countdown to the next celebration firework. */
+    celebrationTimer: 0,
+    /** v3: 0 at nightfall, easing to 1 across the dawn screen's sunrise. */
+    dawnGlow: 0,
     garden: growGarden(next),
   };
   seedMotes(state.particles, next);
+  seedPetals(state.particles, next);
   return state;
 }
 
@@ -135,7 +142,39 @@ function growGarden(next) {
     }
     cornerTrees.push({ x: corner.x, y: corner.y, blossoms, sway: range(next, 0, Math.PI * 2) });
   }
-  return { stars, tufts, stones, cornerTrees };
+  // v3 depth: two ridgelines of distant hills behind the garden, so the
+  // eye reads far, middle and near instead of one flat plane.
+  const ridgeLine = (base, spread) => {
+    const points = [];
+    for (let x = -40; x <= VIEW.width + 40; x += 80) {
+      points.push({ x, y: base + range(next, -spread, spread) });
+    }
+    return points;
+  };
+  const ridgeFar = ridgeLine(VIEW.height * 0.60, 26);
+  const ridgeNear = ridgeLine(VIEW.height * 0.68, 20);
+  // Dark bush silhouettes hugging the side edges: a mid-ground frame.
+  const bushes = [];
+  for (let i = 0; i < 9; i += 1) {
+    const left = i % 2 === 0;
+    bushes.push({
+      x: left ? range(next, -16, 52) : range(next, VIEW.width - 52, VIEW.width + 16),
+      y: range(next, VIEW.height * 0.52, VIEW.height - 30),
+      radius: range(next, 26, 58),
+    });
+  }
+  // Fireflies: the garden's own small lights, drifting and blinking.
+  const fireflies = [];
+  for (let i = 0; i < 26; i += 1) {
+    fireflies.push({
+      x: range(next, 30, VIEW.width - 30),
+      y: range(next, VIEW.height * 0.3, VIEW.height - 40),
+      phase: range(next, 0, Math.PI * 2),
+      speed: range(next, 0.24, 0.6),
+      size: range(next, 1.2, 2.2),
+    });
+  }
+  return { stars, tufts, stones, cornerTrees, ridgeFar, ridgeNear, bushes, fireflies };
 }
 
 /** A fresh run in the same garden: same seed, title skipped, all counters reset. */

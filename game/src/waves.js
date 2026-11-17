@@ -3,7 +3,7 @@
 // fifth wave led by the Gloom Moth. Clear the tenth wave and dawn breaks.
 
 import { BOSS, WAVES } from './config.js';
-import { kindForSpawn, spawnShade, KIND_BOSS } from './enemies.js';
+import { kindForSpawn, spawnShade, KIND_BOSS, KIND_DART, KIND_SPLITTER } from './enemies.js';
 import { raiseBanner } from './banner.js';
 
 /**
@@ -27,7 +27,23 @@ export function stepWaves(state, dt, events) {
     if (wave.spawnTimer <= 0) {
       wave.spawnTimer = wave.spawnInterval;
       wave.toSpawn -= 1;
-      spawnShade(state, kindForSpawn(state));
+      wave.spawned += 1;
+      let kind = kindForSpawn(state);
+      // v3 opening variety: the fourth shade of the very first wave is a
+      // dart — one fast zigzag silhouette among the moths, so the first
+      // thirty seconds already promise more than one kind of enemy.
+      if (wave.number === 1 && wave.spawned === 4) kind = KIND_DART;
+      spawnShade(state, kind);
+      // v3: midway through wave two a single podmoth scouts ahead of its
+      // wave-four kin, banner and all — the split mechanic shows itself
+      // while a new player is still learning, not an hour in.
+      if (wave.number === 2 && !wave.scoutDone
+        && wave.toSpawn <= Math.ceil(WAVES.mothsInWave(2) / 2)) {
+        wave.scoutDone = true;
+        spawnShade(state, KIND_SPLITTER);
+        raiseBanner(state, 'A PODMOTH, EARLY!', 'Popped, it splits into pips.', 2.2);
+        events.scoutArrived = true;
+      }
     }
     return;
   }
@@ -54,6 +70,8 @@ function beginWave(state, events) {
   wave.toSpawn = total;
   wave.spawnInterval = WAVES.trickleSeconds(wave.number) / total;
   wave.spawnTimer = 0.4;
+  wave.spawned = 0;
+  wave.scoutDone = false;
   wave.bossSpawned = wave.number % BOSS.everyWaves === 0;
   events.waveStarted = true;
   if (wave.bossSpawned) {

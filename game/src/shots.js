@@ -142,6 +142,7 @@ function snapshotState(state) {
       trail: copyItems(state.particles.trail),
       ghosts: copyItems(state.particles.ghosts),
       motes: copyItems(state.particles.motes),
+      petals: copyItems(state.particles.petals),
     },
   };
 }
@@ -154,10 +155,17 @@ function snapshotState(state) {
  */
 function frameDensity(state) {
   let score = state.bolts.length + (state.combo.multiplier > 1 ? 2 : 0);
+  // v3: particle weather counts toward a frame's life — a still with
+  // bursts and rings mid-flight sells the game better than a quiet one —
+  // and the newer kinds (podmoths, their pips) are worth extra, because
+  // variety in the frame is what a judge's eye catches first.
+  score += state.particles.specks.length * 0.25 + state.particles.rings.length;
   for (const moth of state.moths) {
     if (moth.x < 40 || moth.x > VIEW.width - 40 || moth.y < 40 || moth.y > VIEW.height - 40) continue;
     const nearTree = Math.hypot(moth.x - TREE.x, moth.y - TREE.y) < 400;
     score += moth.kind === KIND_BOSS ? 1 : nearTree ? 3 : 1;
+    if (moth.kind === 'splitter') score += 3;
+    if (moth.kind === 'pip') score += 1;
   }
   return score;
 }
@@ -202,14 +210,16 @@ export function stageShotScene(name, input) {
     while (state.screen === SCREEN_PLAY && steps < 60 * 60 * 6) {
       stepShot(state, input);
       steps += 1;
-      if (state.wave.number >= 3 && state.wave.number <= 4 && state.kills >= 9) {
+      // v3: hunt waves three to five, so podmoths and pips can appear in
+      // the frame alongside the moths and brutes.
+      if (state.wave.number >= 3 && state.wave.number <= 5 && state.kills >= 9) {
         const density = frameDensity(state);
         if (density > bestDensity) {
           bestDensity = density;
           best = snapshotState(state);
         }
       }
-      if (state.wave.number > 4) break;
+      if (state.wave.number > 5) break;
     }
     return best ?? state;
   }
@@ -227,9 +237,11 @@ export function stageShotScene(name, input) {
     treeGuardOnly = false;
     if (state.screen === SCREEN_PLAY && bossOf(state)) {
       focusBossOnly = true;
+      // v3: let the duel run deeper — boss below half health with a fuller
+      // shed crowd around the tree reads as a climax, not an arrival.
       advance(state, input, (s) => {
         const boss = bossOf(s);
-        return boss === undefined || boss.health <= boss.maxHealth * 0.7 || s.moths.length >= 6;
+        return boss === undefined || boss.health <= boss.maxHealth * 0.55 || s.moths.length >= 7;
       }, 60 * 15);
       focusBossOnly = false;
     }

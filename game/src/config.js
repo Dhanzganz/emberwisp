@@ -113,6 +113,15 @@ export const PALETTE = {
   bossWing: '#c77dff',
   spark: '#ffe066',
   heart: '#ff5d73',
+  // v3: the sky's journey across the night — deep teal night warming
+  // toward a dawn that only truly arrives when the tenth wave falls.
+  skyDawnTop: '#2b3a6e',
+  skyDawnBottom: '#7a4a63',
+  skyDawnFloor: '#33262e',
+  horizonGlow: '#ff9d5c',
+  ridgeFar: '#0d2434',
+  ridgeNear: '#081a21',
+  firefly: '#d8f79a',
   textCream: '#fdf3d8',
   textDim: '#b9d6ce',
   danger: '#ff4d5e',

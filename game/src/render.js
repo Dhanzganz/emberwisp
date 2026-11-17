@@ -14,6 +14,31 @@ import { bannerStrength } from './banner.js';
 export const BUTTON_START = { x: VIEW.width / 2 - 130, y: 566, w: 260, h: 58 };
 export const BUTTON_RESTART = { x: VIEW.width / 2 - 130, y: 540, w: 260, h: 58 };
 
+/** Blends two hex colours, t from 0 (all a) to 1 (all b). */
+function lerpColor(a, b, t) {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  const mix = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
+  return `rgb(${mix[0]},${mix[1]},${mix[2]})`;
+}
+
+/**
+ * v3: how far the night has travelled, 0 at the first wave to 1 as the
+ * last one falls — the sky grades along it, so the environment itself
+ * escalates with the game instead of only the enemy count doing so.
+ */
+export function nightProgress(state) {
+  const wave = state.wave;
+  if (wave.number === 0) return 0;
+  const travelled = wave.number - 1 + (wave.phase === 'active' ? 0.45 : 1);
+  return Math.max(0, Math.min(1, travelled / WAVES.total));
+}
+
+/** The frame's warmth: night progress, or the dawn screen's sunrise. */
+function duskOf(state) {
+  return Math.max(nightProgress(state), state.dawnGlow || 0);
+}
+
 /** A soft radial glow disc — the basic light of this garden. */
 function glow(ctx, x, y, radius, color, alpha) {
   const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
@@ -63,7 +88,9 @@ export function drawFrame(ctx, state, input) {
   ctx.restore();
 
   if (state.screen === SCREEN_PLAY) {
+    drawFrameVignette(ctx, state);
     drawGnawVignette(ctx, state);
+    drawStartRing(ctx, state);
     drawHud(ctx, state);
     drawBanner(ctx, state);
   }
@@ -73,33 +100,103 @@ export function drawFrame(ctx, state, input) {
   if (state.paused && state.screen === SCREEN_PLAY) drawPause(ctx, state);
 }
 
+/**
+ * v3: a soft photographic vignette over the play frame — the corners fall
+ * away a little, so the lit clearing and the fight hold the eye.
+ */
+function drawFrameVignette(ctx, state) {
+  const edge = ctx.createRadialGradient(
+    VIEW.width / 2, VIEW.height / 2, VIEW.height * 0.46,
+    VIEW.width / 2, VIEW.height / 2, VIEW.height * 0.86,
+  );
+  edge.addColorStop(0, 'rgba(2,8,12,0)');
+  edge.addColorStop(1, 'rgba(2,8,12,0.30)');
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+}
+
+/**
+ * v3: for the run's first seconds, a slow ring breathes out from the
+ * Heartbloom — the eye lands on the objective before the first shade does.
+ */
+function drawStartRing(ctx, state) {
+  if (state.runTime >= 3.6) return;
+  const cycle = (state.runTime % 1.2) / 1.2;
+  const fade = 1 - state.runTime / 3.6;
+  ctx.save();
+  ctx.globalAlpha = 0.5 * fade * (1 - cycle);
+  ctx.strokeStyle = PALETTE.blossomSoft;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(TREE.x, TREE.y - 10, 34 + cycle * 96, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** One ridgeline: a filled silhouette path through the garden's points. */
+function drawRidge(ctx, points, lift, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, VIEW.height);
+  for (const point of points) ctx.lineTo(point.x, point.y - lift);
+  ctx.lineTo(points[points.length - 1].x, VIEW.height);
+  ctx.closePath();
+  ctx.fill();
+}
+
 /** Sky, moon, lawn, stones, grass and the corner blossom trees. */
 function drawGarden(ctx, state) {
   const garden = state.garden;
+  const dusk = duskOf(state);
+  // v3: the sky grades with the night — deep teal at first, warming at
+  // the horizon as dawn approaches, so wave ten *looks* later than wave one.
   const sky = ctx.createLinearGradient(0, 0, 0, VIEW.height);
-  sky.addColorStop(0, PALETTE.nightTop);
-  sky.addColorStop(0.55, PALETTE.nightBottom);
-  sky.addColorStop(1, '#0a2422');
+  sky.addColorStop(0, lerpColor(PALETTE.nightTop, PALETTE.skyDawnTop, dusk));
+  sky.addColorStop(0.55, lerpColor(PALETTE.nightBottom, PALETTE.skyDawnBottom, dusk));
+  sky.addColorStop(1, lerpColor('#0a2422', PALETTE.skyDawnFloor, dusk));
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
 
-  // Stars, twinkling on their own phases (they thin out below the horizon).
+  // Stars, twinkling on their own phases — and thinning as dawn nears.
   for (const star of garden.stars) {
-    const alpha = 0.35 + 0.3 * Math.sin(state.time * 1.7 + star.twinkle);
-    ctx.globalAlpha = Math.max(0.08, alpha);
+    const alpha = (0.35 + 0.3 * Math.sin(state.time * 1.7 + star.twinkle)) * (1 - dusk * 0.78);
+    ctx.globalAlpha = Math.max(0.02, alpha);
     circle(ctx, star.x, star.y, star.size, '#dfefff');
   }
   ctx.globalAlpha = 1;
 
-  // The moon, top right, with its halo.
-  glow(ctx, 1130, 96, 120, '#cfe8ff', 0.5);
-  circle(ctx, 1130, 96, 34, '#e8f3ff');
-  circle(ctx, 1118, 88, 7, '#c9dcee');
-  circle(ctx, 1142, 106, 5, '#c9dcee');
+  // The moon, top right, with its halo — sinking and dimming as it yields.
+  const moonY = 96 + dusk * 30;
+  ctx.save();
+  ctx.globalAlpha = 1 - dusk * 0.5;
+  glow(ctx, 1130, moonY, 120, '#cfe8ff', 0.5);
+  circle(ctx, 1130, moonY, 34, '#e8f3ff');
+  circle(ctx, 1118, moonY - 8, 7, '#c9dcee');
+  circle(ctx, 1142, moonY + 10, 5, '#c9dcee');
+  ctx.restore();
+
+  // v3: a warm breath along the horizon once the night is well along.
+  if (dusk > 0.04) {
+    glow(ctx, VIEW.width / 2, VIEW.height * 1.02, 640, PALETTE.horizonGlow, dusk * 0.30);
+  }
+
+  // v3 depth: two ridgelines of far hills, then the bush silhouettes that
+  // frame the sides — far, middle, near, instead of one flat plane.
+  drawRidge(ctx, garden.ridgeFar, dusk * 6, lerpColor(PALETTE.ridgeFar, '#3a2f4a', dusk));
+  drawRidge(ctx, garden.ridgeNear, 0, PALETTE.ridgeNear);
+  ctx.fillStyle = PALETTE.ridgeNear;
+  for (const bush of garden.bushes) {
+    ctx.beginPath();
+    ctx.ellipse(bush.x, bush.y, bush.radius, bush.radius * 0.72, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   // The lawn's heart: a warm glow pooled around the tree clearing.
   glow(ctx, TREE.x, TREE.y, 340, PALETTE.gardenGlow, 0.55);
   glow(ctx, TREE.x, TREE.y, 150, '#1d6a58', 0.5);
+  if (dusk > 0.04) {
+    glow(ctx, TREE.x, TREE.y, 430, PALETTE.horizonGlow, dusk * 0.16);
+  }
 
   // Stones lie still; grass leans with a slow wind.
   for (const stone of garden.stones) {
@@ -127,6 +224,19 @@ function drawGarden(ctx, state) {
   ctx.beginPath();
   ctx.arc(TREE.x, TREE.y, TREE.canopyRadius + 26, 0, Math.PI * 2);
   ctx.stroke();
+
+  // v3: fireflies — the garden's own small lights, drifting on slow
+  // loops and blinking out of phase, dimming as dawn steals their hour.
+  for (const fly of garden.fireflies) {
+    const fx = fly.x + Math.sin(state.time * fly.speed + fly.phase) * 18;
+    const fy = fly.y + Math.cos(state.time * fly.speed * 0.8 + fly.phase) * 11;
+    const blink = 0.5 + 0.5 * Math.sin(state.time * 1.7 + fly.phase * 2.3);
+    const strength = (1 - dusk * 0.65) * (0.25 + 0.75 * blink);
+    glow(ctx, fx, fy, 15, PALETTE.firefly, 0.16 * strength + 0.04);
+    ctx.globalAlpha = 0.35 + 0.6 * strength;
+    circle(ctx, fx, fy, fly.size, PALETTE.firefly);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawCornerTree(ctx, state, tree) {
@@ -468,6 +578,18 @@ function drawParticles(ctx, state) {
     circle(ctx, mote.x, mote.y, mote.size, mote.hue > 0.5 ? PALETTE.blossomSoft : PALETTE.spark);
   }
   ctx.globalAlpha = 1;
+  // v3: blossom petals on the wind — small pink ellipses tumbling down
+  // through every frame, the theme made visible even mid-fight.
+  for (const petal of particles.petals) {
+    ctx.save();
+    ctx.globalAlpha = 0.42;
+    ctx.fillStyle = PALETTE.blossom;
+    ctx.beginPath();
+    ctx.ellipse(petal.x, petal.y, petal.size, petal.size * 0.55, petal.rot, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
   for (const speck of particles.specks) {
     const frac = speck.life / speck.maxLife;
     ctx.globalAlpha = frac;
@@ -644,20 +766,38 @@ function pointInRect(x, y, rect) {
 function drawTitle(ctx, state, input) {
   veil(ctx, 0.34);
   ctx.textAlign = 'center';
+  // v3: the name sits in a pool of blossom light, breathing slowly, with
+  // sparkles winking around it — a composed picture, not text on a veil.
+  const cx = VIEW.width / 2;
+  const breathe = 0.16 + 0.045 * Math.sin(state.time * 1.3);
+  glow(ctx, cx, 208, 360, PALETTE.blossom, breathe);
+  glow(ctx, cx, 208, 170, PALETTE.amber, 0.10 + 0.03 * Math.sin(state.time * 1.3 + 1));
+  for (let i = 0; i < 12; i += 1) {
+    const sx = cx + Math.sin(i * 2.7) * (190 + (i % 4) * 42);
+    const sy = 128 + ((i * 53) % 150) + Math.sin(state.time * 0.9 + i) * 5;
+    const twinkle = 0.5 + 0.5 * Math.sin(state.time * 2.1 + i * 1.9);
+    ctx.globalAlpha = 0.25 + 0.55 * twinkle;
+    circle(ctx, sx, sy, 1.6 + (i % 3) * 0.7, PALETTE.spark);
+  }
+  ctx.globalAlpha = 1;
   // The name, lit like the blossom.
-  ctx.font = '900 96px "Trebuchet MS", sans-serif';
+  const titleSize = 96 + Math.sin(state.time * 1.3) * 1.6;
+  ctx.font = `900 ${titleSize.toFixed(1)}px "Trebuchet MS", sans-serif`;
   ctx.fillStyle = PALETTE.blossomSoft;
   ctx.fillText('EMBERWISP', VIEW.width / 2, 238);
-  ctx.font = '900 96px "Trebuchet MS", sans-serif';
+  ctx.font = `900 ${titleSize.toFixed(1)}px "Trebuchet MS", sans-serif`;
   ctx.strokeStyle = PALETTE.blossom;
   ctx.lineWidth = 2;
   ctx.strokeText('EMBERWISP', VIEW.width / 2, 238);
+  ctx.font = 'italic 600 16px "Trebuchet MS", sans-serif';
+  ctx.fillStyle = PALETTE.textDim;
+  ctx.fillText('Ten waves. One tree. Hold the light.', VIEW.width / 2, 264);
   ctx.font = '700 15px "Trebuchet MS", sans-serif';
   ctx.fillStyle = PALETTE.amber;
-  ctx.fillText('— OBJECTIVE —', VIEW.width / 2, 282);
+  ctx.fillText('— OBJECTIVE —', VIEW.width / 2, 292);
   ctx.font = '600 21px "Trebuchet MS", sans-serif';
   ctx.fillStyle = PALETTE.textCream;
-  ctx.fillText('Guard the Heartbloom till dawn. Ten waves of shades are coming for its light.', VIEW.width / 2, 312);
+  ctx.fillText('Guard the Heartbloom till dawn. Ten waves of shades are coming for its light.', VIEW.width / 2, 320);
 
   ctx.font = '600 18px "Trebuchet MS", sans-serif';
   ctx.fillStyle = PALETTE.textDim;
@@ -667,7 +807,7 @@ function drawTitle(ctx, state, input) {
     'Pop shades for sparks and combo. Catch hearts to mend your light.',
     'If the tree falls, or your three lives fade, the night wins.',
   ];
-  lines.forEach((line, index) => ctx.fillText(line, VIEW.width / 2, 356 + index * 30));
+  lines.forEach((line, index) => ctx.fillText(line, VIEW.width / 2, 362 + index * 30));
 
   const hovered = pointInRect(input.mouseX, input.mouseY, BUTTON_START);
   drawButton(ctx, BUTTON_START, 'BEGIN THE NIGHT', hovered);
@@ -700,6 +840,23 @@ function drawEndPanel(ctx, state, input, dawn) {
     sky.addColorStop(1, 'rgba(255,179,71,0)');
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, VIEW.width, VIEW.height);
+    // v3: the sun itself, rising behind the panel as dawnGlow eases in —
+    // the win has a picture, not only a wash.
+    const rise = state.dawnGlow || 0;
+    // The sun comes to rest behind the headline, clear of the stat lines.
+    const sunY = VIEW.height - 80 - rise * 430;
+    glow(ctx, VIEW.width / 2, sunY, 250, PALETTE.amber, 0.5 * rise);
+    const sun = ctx.createRadialGradient(VIEW.width / 2, sunY, 4, VIEW.width / 2, sunY, 58);
+    sun.addColorStop(0, '#fff3cf');
+    sun.addColorStop(0.7, '#ffd9a0');
+    sun.addColorStop(1, PALETTE.amber);
+    ctx.save();
+    ctx.globalAlpha = 0.35 + 0.65 * rise;
+    ctx.fillStyle = sun;
+    ctx.beginPath();
+    ctx.arc(VIEW.width / 2, sunY, 58, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
   ctx.textAlign = 'center';
   ctx.font = '900 72px "Trebuchet MS", sans-serif';

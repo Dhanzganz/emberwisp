@@ -20,7 +20,34 @@ export function createParticles() {
     ghosts: [],
     /** Ambient motes that drift forever: {x, y, phase, speed, size, hue}. */
     motes: [],
+    /** Blossom petals forever on the wind: {x, y, phase, speed, sway, size, rot}. */
+    petals: [],
   };
+}
+
+/** Seeds the blossom petals that drift down through the garden all night. */
+export function seedPetals(particles, next, count = 16) {
+  for (let i = 0; i < count; i += 1) {
+    particles.petals.push({
+      x: range(next, 0, VIEW.width),
+      y: range(next, 0, VIEW.height),
+      phase: range(next, 0, Math.PI * 2),
+      speed: range(next, 11, 26),
+      sway: range(next, 8, 20),
+      size: range(next, 3, 5.5),
+      rot: range(next, 0, Math.PI * 2),
+    });
+  }
+}
+
+/**
+ * A blossom firework: a ring and a double burst at a point in the sky —
+ * the dawn celebration's punctuation. Pure decoration, like all of this.
+ */
+export function firework(particles, next, x, y, color) {
+  ring(particles, x, y, color, 300, 3);
+  burst(particles, next, x, y, color, 24, 300);
+  burst(particles, next, x, y, '#fdf3d8', 8, 170);
 }
 
 /** Seeds the ambient motes that make the night air feel alive. */
@@ -130,6 +157,15 @@ export function stepParticles(particles, dt, time) {
     if (mote.y < -6) {
       mote.y = VIEW.height + 6;
       mote.x = (mote.x + 173) % VIEW.width;
+    }
+  }
+  for (const petal of particles.petals) {
+    petal.y += petal.speed * dt;
+    petal.x += Math.sin(time * 0.9 + petal.phase) * petal.sway * dt;
+    petal.rot += dt * 0.8;
+    if (petal.y > VIEW.height + 8) {
+      petal.y = -8;
+      petal.x = (petal.x + 211) % VIEW.width;
     }
   }
 }

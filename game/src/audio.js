@@ -82,6 +82,12 @@ export function playWaveHorn(audio) {
   blip(audio, 294, 294, 0.34, 'triangle', 0.14, 0.1);
 }
 
+/** v3: a two-note chime when a wave clears — relief has a sound too. */
+export function playClear(audio) {
+  blip(audio, 659, 659, 0.14, 'sine', 0.11);
+  blip(audio, 988, 988, 0.22, 'sine', 0.1, 0.09);
+}
+
 export function playBossRoar(audio) {
   blip(audio, 110, 55, 0.7, 'sawtooth', 0.2);
   blip(audio, 165, 82, 0.7, 'square', 0.08, 0.05);

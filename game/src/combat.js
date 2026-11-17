@@ -66,6 +66,12 @@ function killShade(state, index, events) {
 
   const gained = Math.round(moth.score * combo.multiplier);
   state.score += gained;
+  // v3: the run's very first kill gets its own small ceremony — a named
+  // moment inside the first seconds, so a new player feels progress land.
+  if (state.kills === 1) {
+    floatText(state.particles, moth.x, moth.y - 28, 'FIRST LIGHT!', PALETTE.spark, 19);
+    ring(state.particles, moth.x, moth.y, PALETTE.spark, 250, 3);
+  }
   const color = shadeColor(moth.kind);
   burst(state.particles, state.next, moth.x, moth.y, color, moth.kind === KIND_BOSS ? 46 : 14, moth.kind === KIND_BOSS ? 300 : 210);
   burst(state.particles, state.next, moth.x, moth.y, PALETTE.blossomSoft, 6, 140);
