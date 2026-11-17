@@ -1,3 +1,130 @@
+# Emberwisp v3 — a judge-appeal pass over v2
+
+v2's live provisional record (7W–5L, expected score 71.09%) says the game
+is liked but not loved; a paid place needs ≈93.9%. v3 changes nothing
+about what the game *is* — it attacks how the game *presents*: the first
+seconds, the stills, the escalation, and the payoff moment. Diagnosis of
+v2 against how pairwise judges actually decide: the backdrop was one flat
+gradient with no depth; the sky at wave ten looked identical to wave one,
+so the environment never escalated; the ambient motes were invisible in
+stills; the title was plain text on a veil; the dawn win — the emotional
+peak — was a gradient wash and a panel; wave one was seven identical
+moths and the first *distinct* enemy arrived in wave three, so a short
+judging session saw exactly one enemy type; and a cleared wave changed
+nothing in the world itself. v3 answers each point:
+
+## 1. A sky that travels (escalation you can see)
+
+- The sky now grades with the night (`nightProgress`, render.js): deep
+  teal at wave one warming through plum to a dawn-tinged horizon by wave
+  ten; the stars thin, the moon sinks and dims, and a warm horizon glow
+  pools behind the garden. The frame at wave ten *looks* later and more
+  desperate than the frame at wave one — escalation without a single new
+  mechanic.
+- Evidence: simtest asserts the progress value runs 0.045 at wave one to
+  0.945 at wave ten; the retaken `2-play.jpg` (wave five) already shows
+  the plum horizon against `1-start.jpg`'s deep teal.
+
+## 2. Depth: far, middle, near (screenshot beauty)
+
+- Two seeded ridgelines of distant hills and a frame of dark bush
+  silhouettes at the side edges give the garden parallax depth; 26
+  fireflies drift and blink over the lawn; 16 blossom petals tumble down
+  through every frame, so the blossom theme is visible mid-fight, not
+  only in the tree. A soft photographic vignette holds the play frame's
+  corners down so the lit clearing owns the eye.
+- Evidence: simtest asserts the garden grows 26 fireflies and both
+  ridgelines and that 16 petals are seeded; all four retaken screenshots
+  were visually inspected — the layers read at a glance in each.
+
+## 3. A composed title (first impression)
+
+- The name now sits in a breathing pool of blossom light with an amber
+  heart, a dozen twinkling sparkles around it, and a tagline — "Ten
+  waves. One tree. Hold the light." — above the objective block. The
+  garden behind it shows the new depth layers and fireflies instead of a
+  flat dimmed plane.
+- Evidence: `1-start.jpg` retaken and inspected.
+
+## 4. The first thirty seconds (hook)
+
+- Wave one's fourth shade is now a **dart** — one fast zigzag silhouette
+  among the moths. Midway through wave two, a single **scout podmoth**
+  arrives ahead of its wave-four kin, with its own banner ("A PODMOTH,
+  EARLY!"), so the split-into-pips mechanic — the game's most distinctive
+  idea — shows itself in the first minute, not the fourth wave.
+- The run's first kill gets a named ceremony: a "FIRST LIGHT!" callout
+  and a gold ring at the kill point. And for the run's first seconds a
+  slow ring breathes out from the Heartbloom, landing the player's eye
+  on the objective before the first shade arrives.
+- Evidence: simtest unit-asserts the dart is wave one's fourth spawn,
+  samples a full night to confirm the scout podmoth takes the field
+  during wave two, and confirms the FIRST LIGHT text fires.
+
+## 5. Moments that land in the world (drama)
+
+- **Wave clear:** the Heartbloom itself bursts blossom — a ring and a
+  double burst from the canopy the player just saved — plus a two-note
+  relief chime in the synth (`playClear`). The reward moment happens to
+  the tree, not only in a banner.
+- **Dawn:** the win now has a show: a 3.4-second blossom-firework
+  celebration over the garden while a real sun rises behind the end
+  panel (easing in over 1.6 s) and the graded sky completes its journey.
+- Evidence: simtest samples a played night and confirms the blossom burst
+  fires on a wave clear; a forced-dawn unit test confirms fireworks spawn
+  (73 specks at peak) and the sunrise eases to full. `4-end.jpg` caught a
+  firework mid-burst over the dawn panel with the sun rising behind the
+  stats — the run shown is the autopilot's honest dawn (26,241 points,
+  231 shades, best combo ×5, 10 of 10 waves).
+
+## 6. Screenshots retaken to sell the game
+
+- The play-scene hunt now ranges over waves three to five and scores
+  frames for particle weather and for the newer kinds, so `2-play.jpg`
+  shows brutes, a podmoth and spark pickups mid-fight under the dusk
+  sky; the boss scene duels deeper (boss below 55% health, fuller shed
+  crowd) for `3-peak.jpg`. All four are 79–115 KiB, inside the gate's
+  256 KiB cap, and headless Chromium loaded the plain game and every
+  scene with **zero console errors**.
+
+## 7. Balance: deliberately untouched in shape
+
+- No tuning numbers changed. The only added pressure in the whole night
+  is one 1-HP dart in wave one and one 3-HP podmoth (plus its two 1-HP
+  pips) in wave two. Same harness, same five seeds, v2 vs v3 (each
+  version's own modules; a seed is a different random night in each,
+  because v3's garden consumes the shared stream differently — the table
+  compares shape, not identical runs):
+
+  | seed | v2 | v3 |
+  |---|---|---|
+  | 20261116 | dawn, 24,239, 229 kills | over w10, 22,345, 206 kills |
+  | 777001 | over w10, 20,896, 195 | dawn, 26,241, 231 kills |
+  | 424242 | dawn, 26,251, 233 | over w9, 20,504, 191 |
+  | 909090 | over w9, 20,190, 183 | over w10, 25,746, 212 |
+  | 31337 | over w10, 25,251, 212 | over w10, 22,594, 205 |
+
+  Mean score 23,365 (v2) vs 23,486 (v3); every run in both versions
+  reaches wave nine or ten; no run in either falls before wave four;
+  dawns 2/5 vs 1/5 — seed luck, not a difficulty change, on identical
+  tuning. An idle player still loses the tree in ~22 s of wave one.
+  All 25 harness checks pass (v2's 16 plus 9 new v3 checks), and the
+  dossier build run twice is **byte-identical**.
+
+## Verdict
+
+v3 is clearly more judge-appealing than v2: every screenshot is visibly
+richer, the environment escalates, variety arrives in the first minute,
+and both reward moments (wave clear, dawn) now happen in the world. The
+honest limit: presentation polish moves pairwise win rate by points, not
+by the ~23 points between 71% and a paid place on its own — no honest
+builder can promise that gap closes. But v2's losses were close-run
+(7–5), the final re-grade starts every duel fresh, and v3 dominates v2
+on every axis a judge sees first. **The swap is worth one of the seven
+remaining submissions.**
+
+---
+
 # Emberwisp v2 — what changed, and the evidence it is better
 
 v2 is a polish-and-variety pass over the scored v1 entry. Every change

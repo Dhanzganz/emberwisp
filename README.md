@@ -12,10 +12,12 @@ flowering tree of a night garden. Shade-moths come in ten waves to gnaw its
 light away. Fly with **WASD / arrows**, aim with the **mouse** and hold to
 shoot ember bolts, **Shift / Space** to dash, **P** to pause, **M** to mute.
 Pop shades to build a score combo, catch sparks and hearts, face the Gloom
-Moth every fifth wave — and beware the podmoths from wave four: popped,
-each one splits into two darting pips. If the tree still stands after the
-tenth wave, dawn breaks and you win. If the tree falls, or your three
-lives fade, the night wins.
+Moth every fifth wave — and beware the podmoths: one scouts ahead in wave
+two, and from wave four they come in earnest; popped, each one splits into
+two darting pips. All the while the sky itself travels — deep teal night
+warming toward dawn over fireflies, ridgelines and drifting blossom — and
+if the tree still stands after the tenth wave, dawn breaks in fireworks
+and you win. If the tree falls, or your three lives fade, the night wins.
 
 ## Layout
 
